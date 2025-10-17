@@ -10,7 +10,7 @@ This is a compact educational ray tracer in one source file that outputs an ASCI
 ```bash
 cargo build --release
 # produce an image (scene 3, 800x600, recursion depth 3)
-./target/release/rust_raytracer 3 800 600 3 > output.ppm
+./target/release/ray-tracing 3 800 600 3 > output.ppm
 ```
 
 
