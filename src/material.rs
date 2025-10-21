@@ -2,6 +2,7 @@ use crate::color::Color;
 use crate::hittable::HitRecord;
 use crate::ray::Ray;
 use crate::{common, vec3};
+use crate::vec3::Vec3;
  
 pub trait Material {
     fn scatter(
@@ -66,14 +67,28 @@ impl Material for Metal {
         attenuation: &mut Color,
         scattered: &mut Ray,
     ) -> bool {
-        let reflected = vec3::reflect(vec3::unit_vector(r_in.direction()), rec.normal);
- 
+      let reflected = vec3::reflect(r_in.direction().unit_vector(), rec.normal);
+
+
+let diffuse_dir = rec.normal + vec3::random_unit_vector();
+let reflected_dir = reflected + self.fuzz * vec3::random_in_unit_sphere();
+
+// linear blend between diffuse and reflection
+let blend = 0.30; // 0.0 = fully diffuse, 1.0 = fully reflective
+let scatter_dir = Vec3::lerp(diffuse_dir, reflected_dir, blend);
+
+
+
         *attenuation = self.albedo;
-        *scattered = Ray::new(rec.p, reflected + self.fuzz * vec3::random_in_unit_sphere());
-        vec3::dot(scattered.direction(), rec.normal) > 0.0
+        *scattered = Ray::new(rec.p, scatter_dir);
+
+        // Only keep rays that leave the surface
+        scattered.direction().dot(&rec.normal) > 0.0
     }
 }
+
  
+
 pub struct Dielectric {
     ir: f64, // Index of refraction
 }
@@ -106,9 +121,11 @@ impl Material for Dielectric {
         } else {
             self.ir
         };
- 
-        let unit_direction = vec3::unit_vector(r_in.direction());
-        let cos_theta = f64::min(vec3::dot(-unit_direction, rec.normal), 1.0);
+
+
+        let unit_direction = r_in.direction().unit_vector(); // normalized ray direction
+        let cos_theta = f64::min((-unit_direction).dot(&rec.normal), 1.0);
+
         let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
  
         let cannot_refract = refraction_ratio * sin_theta > 1.0;

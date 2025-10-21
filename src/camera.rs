@@ -26,10 +26,10 @@ impl Camera {
         let h = f64::tan(theta / 2.0);
         let viewport_height = 2.0 * h;
         let viewport_width = aspect_ratio * viewport_height;
- 
-        let w = vec3::unit_vector(lookfrom - lookat);
-        let u = vec3::unit_vector(vec3::cross(vup, w));
-        let v = vec3::cross(w, u);
+        
+        let w = (lookfrom - lookat).unit_vector();
+        let u = vup.cross(&w).unit_vector();
+        let v = w.cross(&u);
  
         let origin = lookfrom;
         let horizontal = focus_dist * viewport_width * u;
