@@ -31,25 +31,53 @@ fn ray_color(r: &Ray, world: &dyn Hittable,lights: &[PointLight], depth: i32) ->
     let mut rec = HitRecord::new();
     if world.hit(r, 0.001, common::INFINITY, &mut rec) {
             let view_dir = (-r.direction()).unit_vector();
+
             let mut color = Color::new(0.0, 0.0, 0.0);
             // Base material scattering
             let mut attenuation = Color::default();
             let mut scattered = Ray::default();
+
+            // Recursive (indirect) lighting
             if let Some(mat) = &rec.mat {
                 if mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
                     color += attenuation * ray_color(&scattered, world, lights, depth - 1);
                 }
             }
+        
+           // --- 💡 Direct lighting with SOFT SHADOWS ---
+for light in lights.iter() {
+    let samples = 2; // number of shadow rays per light (higher = smoother shadows)
+    let mut total_light = Color::new(0.0, 0.0, 0.0);
 
-    // Direct lighting from point lights
-    for light in lights.iter() {
-        // Optional: add shadow check here if needed
-      let albedo = attenuation; // or rec.mat’s color if you store it
-color += compute_light(rec.p, rec.normal, view_dir, albedo, light);
+    for _ in 0..samples {
+        // Jitter the light position slightly (simulate area light)
+        let light_radius = 1.4; // controls softness — increase for softer shadows
+        let jitter = vec3::random_in_unit_sphere() * light_radius;
+        let sample_pos = light.position + jitter;
+
+        let to_light = sample_pos - rec.p;
+        let light_dist = to_light.length();
+        let light_dir = to_light / light_dist;
+
+        let shadow_origin = rec.p + rec.normal * 0.001;
+        let shadow_ray = Ray::new(shadow_origin, light_dir);
+
+        let mut shadow_hit = HitRecord::new();
+        let in_shadow = world.hit(&shadow_ray, 0.001, light_dist - 0.001, &mut shadow_hit);
+
+        if !in_shadow {
+            let albedo = attenuation;
+            total_light += compute_light(rec.p, rec.normal, view_dir, albedo, light);
+        }
     }
+
+    // Average the samples
+    color += total_light / samples as f64;
     return color;
+}
     }
- 
+
+            //Background gradient
     let unit_direction = r.direction().unit_vector();
     let t = 0.5 * (unit_direction.y() + 1.0);
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
@@ -135,10 +163,10 @@ fn main() {
     // Image
  
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 1000;
+    const IMAGE_WIDTH: i32 = 400;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
-    const SAMPLES_PER_PIXEL: i32 = 400;
-    const MAX_DEPTH: i32 = 300;
+    const SAMPLES_PER_PIXEL: i32 = 200;
+    const MAX_DEPTH: i32 = 100;
  
     // World
  
@@ -162,7 +190,7 @@ fn main() {
         dist_to_focus,
     );
 
-    let intensity = 0.85;
+    let intensity = 0.75;
     let lights = vec![
     PointLight::new(Point3::new(0.0, 5.0, 4.0), Color::new(1.0, 0.85, 0.6), intensity), // overhead lamp
 ];
