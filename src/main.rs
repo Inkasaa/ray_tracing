@@ -117,7 +117,7 @@ fn random_scene() -> HittableList {
                   }
 
                   let fuzz = 0.01;
-                  let sphere_material = Rc::new(Metal::new(albedo, fuzz));
+                  let sphere_material = Rc::new(Metal::new(albedo, fuzz, center));
 
                     world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
                 } //else if choose_mat < 0.95 {

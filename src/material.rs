@@ -48,13 +48,15 @@ impl Material for Lambertian {
 pub struct Metal {
     albedo: Color,
     fuzz: f64,
+    center: Vec3, // store sphere center
 }
- 
+
 impl Metal {
-    pub fn new(a: Color, f: f64) -> Metal {
+    pub fn new(a: Color, f: f64, center: Vec3) -> Metal {
         Metal {
             albedo: a,
             fuzz: if f < 1.0 { f } else { 1.0 },
+            center,
         }
     }
 }
@@ -77,12 +79,20 @@ let reflected_dir = reflected + self.fuzz * vec3::random_in_unit_sphere();
 let blend = 0.30; // 0.0 = fully diffuse, 1.0 = fully reflective
 let scatter_dir = Vec3::lerp(diffuse_dir, reflected_dir, blend);
 
+ *scattered = Ray::new(rec.p, scatter_dir);
 
+        // Procedural stripe
+        let p = (rec.p - self.center).unit_vector();
+        let phi = f64::atan2(p.z(), p.x());
+        let stripe_width = 0.3;
 
-        *attenuation = self.albedo;
-        *scattered = Ray::new(rec.p, scatter_dir);
+        let mut color = self.albedo;
+        if (phi / stripe_width).floor() as i32 % 2 == 0 {
+            color = Color::new(1.0, 1.0, 1.0); // white stripe
+        }
 
-        // Only keep rays that leave the surface
+        *attenuation = color;
+
         scattered.direction().dot(&rec.normal) > 0.0
     }
 }
