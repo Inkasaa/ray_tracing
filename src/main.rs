@@ -8,12 +8,12 @@ mod ray;
 mod sphere;
 mod vec3;
 mod light;
-use crate::{light::{compute_light, PointLight}, vec3::Point3};
+use crate::{light::{compute_light, PointLight}, material::{Material, Spots}, vec3::Point3};
  
 use std::io;
 use std::rc::Rc;
 
-use common::random_billiard_color;
+use common::*;
 use camera::Camera;
 use color::Color;
 use hittable::{HitRecord, Hittable};
@@ -93,46 +93,30 @@ fn random_scene() -> HittableList {
         ground_material,
     )));
 
-    let mut color_count = 0;
  
-    for a in -2..2 {
-        for b in -2..2 {
+    for a in -1..3 {
+        for b in -1..3 {
            // let choose_mat = common::random_double();
             let center = Point3::new(
-                a as f64 + 0.8 * common::random_double(), //0.9
+                a as f64 + 0.0, //* common::random_double(), //0.9
                 0.2, // * common::random_double(), //original: 0.2,
-                b as f64 + 0.8 * common::random_double(), //0.9
+                b as f64 + 0.0, //* common::random_double(), //0.9
             );
- 
-       //    if (center - Point3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-              //  if choose_mat < 0.4 {
-                    // Diffuse
-                   // let albedo = Color::random() * Color::random();
-                  //  let sphere_material = Rc::new(Lambertian::new(albedo));
-                  let albedo = random_billiard_color(color_count);
-                  if color_count < 8 {
-                  color_count += 1;
-                  } else {
-                    color_count = 0;
-                  }
+            
+let mut picker = BilliardColorPicker::new();
 
-                  let fuzz = 0.01;
-                  let sphere_material = Rc::new(Metal::new(albedo, fuzz, center));
+while let Some(albedo) = picker.random_billiard_color() {
+    let fuzz = 0.01;
+    let sphere_material: Rc<dyn Material> = if albedo.is_spots {
+        Rc::new(Spots::new(albedo.color, fuzz, center))
+    } else {
+        Rc::new(Metal::new(albedo.color, fuzz))
+    };
 
-                    world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
-                } //else if choose_mat < 0.95 {
-                    // Metal
-                  //  let albedo = Color::random_range(0.5, 1.0);
-                  //  let fuzz = common::random_double_range(0.0, 0.5);
-                  //  let sphere_material = Rc::new(Metal::new(albedo, fuzz));
-                  //  world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
-                //} else {
-                    // Glass
-                //    let sphere_material = Rc::new(Dielectric::new(1.5));
-                //    world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
-               // }
-        //    }
-    //    }
+    world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
+}
+
+                } 
     }
  
   //  let material1 = Rc::new(Dielectric::new(1.5));
@@ -163,7 +147,7 @@ fn main() {
     // Image
  
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 400;
+    const IMAGE_WIDTH: i32 = 300;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 100;
