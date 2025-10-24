@@ -93,30 +93,29 @@ fn random_scene() -> HittableList {
         ground_material,
     )));
 
- 
+ let mut count_balls = 0;
     for a in -1..3 {
         for b in -1..3 {
            // let choose_mat = common::random_double();
             let center = Point3::new(
-                a as f64 + 0.0, //* common::random_double(), //0.9
-                0.2, // * common::random_double(), //original: 0.2,
-                b as f64 + 0.0, //* common::random_double(), //0.9
+                a as f64 + 0.9 * common::random_double(), //0.9
+                0.2,  
+                b as f64 + 0.9 * common::random_double(), //0.9
             );
 
-let mut picker = BilliardColorPicker::new();
+let color = random_billiard_color(count_balls);
+   count_balls += 1;
 
-while let Some(albedo) = picker.random_billiard_color() {
     let fuzz = 0.01;
     let spot_dir = vec3::random_unit_vector();
 
-    let sphere_material: Rc<dyn Material> = if albedo.is_spots {
-        Rc::new(Spots::new(albedo.color, fuzz, center))
+    let sphere_material: Rc<dyn Material> = if color.is_spots {
+        Rc::new(Spots::new(color.color, fuzz, center))
     } else {
-        Rc::new(Metal::new(albedo.color, fuzz, center, spot_dir))
+        Rc::new(Metal::new(color.color, fuzz, center, spot_dir))
     };
 
     world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
-}
 
                 } 
     }
@@ -149,7 +148,7 @@ fn main() {
     // Image
  
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 300;
+    const IMAGE_WIDTH: i32 = 900;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 100;

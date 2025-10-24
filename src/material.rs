@@ -95,10 +95,10 @@ let up = if main_dir.y().abs() > 0.9 {
 let _small_spot_dir = main_dir.cross(&up).unit_vector();
 
 // Parameters controlling the look of the spot
-let small_spot_radius = 0.08;
-let outer_rim_thickness = 0.02;
-let inner_black_ring_radius = 0.015;
-let inner_ring_thickness = 0.01;
+let small_spot_radius = 0.08;       // radius of white spot
+let outer_rim_thickness = 0.005;     // black rim
+let inner_black_ring_radius = 0.02; // radius of inner black "0"
+let inner_ring_thickness = 0.015;  
 
 // Measure how aligned this surface point is with the spot center
 let alignment = p.dot(&main_dir);
@@ -205,9 +205,9 @@ let small_spot_dir = main_dir.cross(&up).unit_vector();
 
 // parameters
 let small_spot_radius = 0.08;       // radius of white spot
-let outer_rim_thickness = 0.02;     // black rim
-let inner_black_ring_radius = 0.015; // radius of inner black "0"
-let inner_ring_thickness = 0.01;    // thickness of inner black ring
+let outer_rim_thickness = 0.008;     // black rim
+let inner_black_ring_radius = 0.02; // radius of inner black "0"
+let inner_ring_thickness = 0.012;    // thickness of inner black ring
 
 let dist_mid = p.dot(&small_spot_dir);
 let angle_diff = 1.0 - dist_mid.abs();
