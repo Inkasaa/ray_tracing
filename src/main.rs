@@ -102,15 +102,17 @@ fn random_scene() -> HittableList {
                 0.2, // * common::random_double(), //original: 0.2,
                 b as f64 + 0.0, //* common::random_double(), //0.9
             );
-            
+
 let mut picker = BilliardColorPicker::new();
 
 while let Some(albedo) = picker.random_billiard_color() {
     let fuzz = 0.01;
+    let spot_dir = vec3::random_unit_vector();
+
     let sphere_material: Rc<dyn Material> = if albedo.is_spots {
         Rc::new(Spots::new(albedo.color, fuzz, center))
     } else {
-        Rc::new(Metal::new(albedo.color, fuzz))
+        Rc::new(Metal::new(albedo.color, fuzz, center, spot_dir))
     };
 
     world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));

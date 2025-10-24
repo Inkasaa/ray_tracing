@@ -46,15 +46,19 @@ impl Material for Lambertian {
 }
  
 pub struct Metal {
-    albedo: Color,
-    fuzz: f64,
+   pub albedo: Color,
+   pub fuzz: f64,
+   pub center: Vec3,
+   pub spot_dir: Vec3,
 }
 
 impl Metal {
-       pub fn new(a: Color, f: f64) -> Metal {
+       pub fn new(a: Color, f: f64, center: Vec3, spot_dir: Vec3) -> Metal {
         Metal {
             albedo: a,
             fuzz: f.clamp(0.0, 1.0), // ensures fuzz is between 0 and 1
+            center: center,
+            spot_dir: spot_dir.unit_vector(),
         }
     }
 }
@@ -64,31 +68,75 @@ impl Material for Metal {
         &self,
         r_in: &Ray,
         rec: &HitRecord,
-        attenuation: &mut Color,
+        attenuation: &mut Vec3,
         scattered: &mut Ray,
     ) -> bool {
-      let reflected = vec3::reflect(r_in.direction().unit_vector(), rec.normal);
+        let reflected = vec3::reflect(r_in.direction().unit_vector(), rec.normal);
+        let diffuse_dir = rec.normal + vec3::random_unit_vector();
+        let reflected_dir = reflected + self.fuzz * vec3::random_in_unit_sphere();
 
+        // blend diffuse and reflection
+        let blend = 0.35;
+        let scatter_dir = Vec3::lerp(diffuse_dir, reflected_dir, blend);
+        *scattered = Ray::new(rec.p, scatter_dir);
 
-let diffuse_dir = rec.normal + vec3::random_unit_vector();
-let reflected_dir = reflected + self.fuzz * vec3::random_in_unit_sphere();
+        // determine spot colors
+let p = (rec.p - self.center).unit_vector();
 
-// linear blend between diffuse and reflection
-let blend = 0.35; // 0.0 = fully diffuse, 1.0 = fully reflective
-let scatter_dir = Vec3::lerp(diffuse_dir, reflected_dir, blend);
+// Direction to the spot’s center (passed as argument when material created)
+let main_dir = self.spot_dir;
 
- *scattered = Ray::new(rec.p, scatter_dir);
- 
-        *attenuation = self.albedo;
+// Define perpendicular “up” vector for stability
+let up = if main_dir.y().abs() > 0.9 {
+    Vec3::new(1.0, 0.0, 0.0)
+} else {
+    Vec3::new(0.0, 1.0, 0.0)
+};
+let _small_spot_dir = main_dir.cross(&up).unit_vector();
 
-        scattered.direction().dot(&rec.normal) > 0.0
+// Parameters controlling the look of the spot
+let small_spot_radius = 0.08;
+let outer_rim_thickness = 0.02;
+let inner_black_ring_radius = 0.015;
+let inner_ring_thickness = 0.01;
+
+// Measure how aligned this surface point is with the spot center
+let alignment = p.dot(&main_dir);
+let angle_diff = 1.0 - alignment;
+
+// Start with the base ball color
+let mut final_color = self.albedo;
+
+// Only change color if inside the white spot region
+if angle_diff < small_spot_radius {
+    let mut spot_color = Color::new(0.72, 0.50, 0.35); // white spot
+
+    // Outer black rim
+    if angle_diff > (small_spot_radius - outer_rim_thickness) {
+        spot_color = Color::new(0.0, 0.0, 0.0);
     }
+
+    // Inner black ring ("0")
+    if angle_diff < inner_black_ring_radius
+        && angle_diff > (inner_black_ring_radius - inner_ring_thickness)
+    {
+        spot_color = Color::new(0.0, 0.0, 0.0);
+    }
+
+    final_color = spot_color;
 }
 
-pub struct BiljardColor {
-    color: Vec3,
-    is_striped: bool,
-}
+*attenuation = final_color;
+   scattered.direction().dot(&rec.normal) > 0.0
+
+        }
+
+
+     
+    }
+
+
+
 
 pub struct Spots {
     albedo: Vec3,

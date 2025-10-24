@@ -65,14 +65,15 @@ impl BilliardColorPicker {
     }
 
     pub fn random_billiard_color(&mut self) -> Option<Albedo> {
-        if self.current >= self.colors.len() {
+        let len = self.colors.len();
+        if self.current >= len {
             return None; // all colors have been used
         }
 
         let color = self.colors[self.current];
         self.current += 1;
 
-        let is_spots = self.current > 8; // keep your original logic
+        let is_spots = self.current >= len/2; // keep your original logic
 
         Some(Albedo { color, is_spots,})
     }
