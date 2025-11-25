@@ -6,7 +6,7 @@ use color::Color;
 pub use std::f64::consts::PI;
 pub use std::f64::INFINITY;
 
-use crate::{color, common};
+use crate::color;
  
 // Utility functions
  

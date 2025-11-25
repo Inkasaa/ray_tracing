@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::hittable::{HitRecord, Hittable};
 use crate::material::Material;
 use crate::ray::Ray;
-use crate::vec3::{self, Point3};
+use crate::vec3::Point3;
  
 pub struct Sphere {
     center: Point3,

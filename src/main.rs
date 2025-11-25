@@ -8,7 +8,7 @@ mod ray;
 mod sphere;
 mod vec3;
 mod light;
-use crate::{light::{compute_light, PointLight}, material::{Material, Spots}, vec3::Point3};
+use crate::{light::{compute_light, PointLight}, material::{Material, Striped}, vec3::Point3};
  
 use std::io;
 use std::rc::Rc;
@@ -17,8 +17,8 @@ use common::*;
 use camera::Camera;
 use color::Color;
 use hittable::{HitRecord, Hittable};
-use hittable_list::HittableList;
-use material::{Dielectric, Lambertian, Metal};
+use hittable_list::HittableList; 
+use material::{Lambertian, Metal};
 use ray::Ray;
 use sphere::Sphere;
  
@@ -32,52 +32,52 @@ fn ray_color(r: &Ray, world: &dyn Hittable,lights: &[PointLight], depth: i32) ->
     if world.hit(r, 0.001, common::INFINITY, &mut rec) {
             let view_dir = (-r.direction()).unit_vector();
 
-            let mut color = Color::new(0.0, 0.0, 0.0);
-            // Base material scattering
+            // --- 1. Calculate Indirect (scattered) light ---
             let mut attenuation = Color::default();
             let mut scattered = Ray::default();
-
-            // Recursive (indirect) lighting
-            if let Some(mat) = &rec.mat {
+            let indirect_light = if let Some(mat) = &rec.mat {
                 if mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
-                    color += attenuation * ray_color(&scattered, world, lights, depth - 1);
+                    attenuation * ray_color(&scattered, world, lights, depth - 1)
+                } else {
+                    Color::new(0.0, 0.0, 0.0)
                 }
-            }
+            } else {
+                Color::new(0.0, 0.0, 0.0)
+            };
         
-           // --- 💡 Direct lighting with SOFT SHADOWS ---
-for light in lights.iter() {
-    let samples = 2; // number of shadow rays per light (higher = smoother shadows)
-    let mut total_light = Color::new(0.0, 0.0, 0.0);
+           // --- 2. Calculate Direct light from all light sources ---
+            let mut direct_light = Color::new(0.0, 0.0, 0.0);
+            for light in lights.iter() {
+                const SAMPLES: i32 = 4; // Use a constant for shadow samples
+                let mut light_contribution = Color::new(0.0, 0.0, 0.0);
 
-    for _ in 0..samples {
-        // Jitter the light position slightly (simulate area light)
-        let light_radius = 1.4; // controls softness — increase for softer shadows
-        let jitter = vec3::random_in_unit_sphere() * light_radius;
-        let sample_pos = light.position + jitter;
+                for _ in 0..SAMPLES {
+                    let light_radius = 1.4;
+                    let jitter = vec3::random_in_unit_sphere() * light_radius;
+                    let sample_pos = light.position + jitter;
+                    let to_light = sample_pos - rec.p;
+                    let light_dist = to_light.length();
+                    let light_dir = to_light / light_dist;
+                    let shadow_ray = Ray::new(rec.p + rec.normal * 0.001, light_dir);
 
-        let to_light = sample_pos - rec.p;
-        let light_dist = to_light.length();
-        let light_dir = to_light / light_dist;
+                    if !world.hit(&shadow_ray, 0.001, light_dist - 0.001, &mut HitRecord::new()) {
+                        // If the material pattern is black, only add specular highlights.
+                        if attenuation.near_zero() {
+                            light_contribution += compute_light(rec.p, rec.normal, view_dir, Color::new(0.0, 0.0, 0.0), light).1; // Specular only
+                        } else {
+                            let (diffuse, specular) = compute_light(rec.p, rec.normal, view_dir, attenuation, light);
+                            light_contribution += diffuse + specular;
+                        }
+                    }
+                }
+                direct_light += light_contribution / SAMPLES as f64;
+            }
 
-        let shadow_origin = rec.p + rec.normal * 0.001;
-        let shadow_ray = Ray::new(shadow_origin, light_dir);
-
-        let mut shadow_hit = HitRecord::new();
-        let in_shadow = world.hit(&shadow_ray, 0.001, light_dist - 0.001, &mut shadow_hit);
-
-        if !in_shadow {
-            let albedo = attenuation;
-            total_light += compute_light(rec.p, rec.normal, view_dir, albedo, light);
-        }
+            // --- 3. Combine and return final color ---
+            return indirect_light + direct_light;
     }
 
-    // Average the samples
-    color += total_light / samples as f64;
-    return color;
-}
-    }
-
-            //Background gradient
+    //Background gradient
     let unit_direction = r.direction().unit_vector();
     let t = 0.5 * (unit_direction.y() + 1.0);
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
@@ -110,7 +110,7 @@ let color = random_billiard_color(count_balls);
     let spot_dir = vec3::random_unit_vector();
 
     let sphere_material: Rc<dyn Material> = if color.is_spots {
-        Rc::new(Spots::new(color.color, fuzz, center))
+        Rc::new(Striped::new(color.color, fuzz, center))
     } else {
         Rc::new(Metal::new(color.color, fuzz, center, spot_dir))
     };
@@ -120,26 +120,7 @@ let color = random_billiard_color(count_balls);
                 } 
     }
  
-  //  let material1 = Rc::new(Dielectric::new(1.5));
-  //  world.add(Box::new(Sphere::new(
-  //      Point3::new(0.0, 1.0, 0.0),
-  //      1.0,
-  //      material1,
-  //  )));
- 
-   // let material2 = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
-   // world.add(Box::new(Sphere::new(
-   //     Point3::new(-4.0, 1.0, 0.0),
-   //     1.0,
-   //     material2,
-   // )));
- 
-  // let material3 = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
-  //  world.add(Box::new(Sphere::new(
-  //      Point3::new(4.0, 1.0, 0.0),
-   //     1.0,
-   //     material3,
-   // )));
+
  
     world
 }
@@ -148,7 +129,7 @@ fn main() {
     // Image
  
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 900;
+    const IMAGE_WIDTH: i32 = 600;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 100;

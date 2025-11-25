@@ -21,12 +21,12 @@ pub fn compute_light(
     view_dir: Vec3,
     albedo: Color,
     light: &PointLight,
-) -> Color {
+) -> (Color, Color) { // Returns (diffuse, specular)
     // Vector from hit point to light
     let to_light = (light.position - hit_point).unit_vector();
 
     // Diffuse contribution (Lambertian)
-    let diff = f64::max(normal.dot(&to_light), 0.0);
+    let diff = f64::max(normal.dot(&to_light), 0.0); 
     let diffuse = diff * albedo * light.intensity;
 
     // Specular contribution (Phong-like)
@@ -40,9 +40,6 @@ pub fn compute_light(
     * specular_strength
     * spec_angle.powf(shininess)
     * light.intensity;
-
-
-    // Total contribution
-    diffuse + specular
+    
+    (diffuse, specular)
 }
-

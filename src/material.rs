@@ -2,8 +2,12 @@ use crate::color::Color;
 use crate::hittable::HitRecord;
 use crate::ray::Ray;
 use crate::{common, vec3};
-use crate::vec3::Vec3;
+use crate::vec3::{Point3, Vec3};
  
+// --- Constants for Billiard Ball Spot Rendering ---
+const BILLIARD_SPOT_WHITE: Color = Color::new(0.72, 0.50, 0.35); // Warm white/tan for spots
+const BILLIARD_SPOT_BLACK: Color = Color::new(0.0, 0.0, 0.0);
+
 pub trait Material {
     fn scatter(
         &self,
@@ -61,6 +65,41 @@ impl Metal {
             spot_dir: spot_dir.unit_vector(),
         }
     }
+
+    /// Calculates the color for a solid-colored ball with a single numbered spot (like the 8-ball).
+    fn get_solid_ball_color(&self, hit_point: &Point3) -> Color {
+        // If the ball is the white cue ball, don't draw a numbered spot on it.
+        if (self.albedo - BILLIARD_SPOT_WHITE).near_zero() {
+            return self.albedo;
+        }
+
+        let p_normalized = (*hit_point - self.center).unit_vector();
+        let alignment = p_normalized.dot(&self.spot_dir);
+
+        // Check if the hit point is within the small spot area
+        if (1.0 - alignment) < 0.08 { // small_spot_radius
+            return get_number_spot_color(p_normalized, self.spot_dir);
+        }
+
+        self.albedo
+    }
+}
+
+/// Draws a small, numbered white spot with a black ring.
+fn get_number_spot_color(p_normalized: Vec3, spot_center_dir: Vec3) -> Color {
+    let alignment = p_normalized.dot(&spot_center_dir);
+    let angle_diff = 1.0 - alignment;
+
+    // Parameters controlling the look of the spot
+    const SMALL_SPOT_RADIUS: f64 = 0.08;
+    const OUTER_RIM_THICKNESS: f64 = 0.0135;
+    const INNER_BLACK_RING_RADIUS: f64 = 0.02;
+    const INNER_RING_THICKNESS: f64 = 0.015;
+
+    // Determine color based on position within the spot
+    if angle_diff > (SMALL_SPOT_RADIUS - OUTER_RIM_THICKNESS) { BILLIARD_SPOT_BLACK } // Outer black rim
+    else if angle_diff < INNER_BLACK_RING_RADIUS && angle_diff > (INNER_BLACK_RING_RADIUS - INNER_RING_THICKNESS) { BILLIARD_SPOT_BLACK } // Inner black ring ("0")
+    else { BILLIARD_SPOT_WHITE } // Center white part
 }
  
 impl Material for Metal {
@@ -71,93 +110,76 @@ impl Material for Metal {
         attenuation: &mut Vec3,
         scattered: &mut Ray,
     ) -> bool {
-        let reflected = vec3::reflect(r_in.direction().unit_vector(), rec.normal);
-        let diffuse_dir = rec.normal + vec3::random_unit_vector();
-        let reflected_dir = reflected + self.fuzz * vec3::random_in_unit_sphere();
-
-        // blend diffuse and reflection
-        let blend = 0.35;
-        let scatter_dir = Vec3::lerp(diffuse_dir, reflected_dir, blend);
+        const SCATTER_BLEND: f64 = 0.35;
+        let scatter_dir = calculate_mixed_scatter_direction(r_in, rec, self.fuzz, SCATTER_BLEND);
         *scattered = Ray::new(rec.p, scatter_dir);
-
-        // determine spot colors
-let p = (rec.p - self.center).unit_vector();
-
-// Direction to the spot’s center (passed as argument when material created)
-let main_dir = self.spot_dir;
-
-// Define perpendicular “up” vector for stability
-let up = if main_dir.y().abs() > 0.9 {
-    Vec3::new(1.0, 0.0, 0.0)
-} else {
-    Vec3::new(0.0, 1.0, 0.0)
-};
-let _small_spot_dir = main_dir.cross(&up).unit_vector();
-
-// Parameters controlling the look of the spot
-let small_spot_radius = 0.08;       // radius of white spot
-let outer_rim_thickness = 0.005;     // black rim
-let inner_black_ring_radius = 0.02; // radius of inner black "0"
-let inner_ring_thickness = 0.015;  
-
-// Measure how aligned this surface point is with the spot center
-let alignment = p.dot(&main_dir);
-let angle_diff = 1.0 - alignment;
-
-// Start with the base ball color
-let mut final_color = self.albedo;
-
-// Only change color if inside the white spot region
-if angle_diff < small_spot_radius {
-    let mut spot_color = Color::new(0.72, 0.50, 0.35); // white spot
-
-    // Outer black rim
-    if angle_diff > (small_spot_radius - outer_rim_thickness) {
-        spot_color = Color::new(0.0, 0.0, 0.0);
+        *attenuation = self.get_solid_ball_color(&rec.p);
+        
+        scattered.direction().dot(&rec.normal) > 0.0
     }
 
-    // Inner black ring ("0")
-    if angle_diff < inner_black_ring_radius
-        && angle_diff > (inner_black_ring_radius - inner_ring_thickness)
-    {
-        spot_color = Color::new(0.0, 0.0, 0.0);
-    }
-
-    final_color = spot_color;
 }
 
-*attenuation = final_color;
-   scattered.direction().dot(&rec.normal) > 0.0
-
-        }
-
-
-     
-    }
-
-
-
-
-pub struct Spots {
-    albedo: Vec3,
+pub struct Striped {
+    albedo: Color,
     fuzz: f64,
     center: Vec3,
     spot_dir: Vec3, // random direction for spots
 }
 
-impl Spots {
-    pub fn new(a: Vec3, f: f64, center: Vec3) -> Spots {
+impl Striped {
+    pub fn new(a: Color, f: f64, center: Vec3) -> Striped {
         let main_dir = vec3::random_unit_vector(); // random orientation of spots
-        Spots {
+        Striped {
             albedo: a,
             fuzz: f.clamp(0.0, 1.0),
             center,
             spot_dir: main_dir,
         }
     }
+
+    /// Calculates the color for a striped ball with two large spots and a numbered spot.
+    fn get_striped_ball_color(&self, hit_point: &Point3) -> Color {
+        let p = (*hit_point - self.center).unit_vector();
+        
+        // --- Big white/tan spots on opposite ends ---
+        const BIG_SPOT_RADIUS: f64 = 0.50;
+        let opposite_dir = -self.spot_dir;
+        let spot_centers = [self.spot_dir, opposite_dir];
+
+        for c in spot_centers.iter() {
+            if p.dot(c) > (1.0 - BIG_SPOT_RADIUS) {
+                return BILLIARD_SPOT_WHITE;
+            }
+        }
+
+        // --- Small "number" spot between the big spots ---
+        // Find a direction perpendicular to the main spot axis
+        let up = if self.spot_dir.y().abs() > 0.9 {
+            Vec3::new(1.0, 0.0, 0.0)
+        } else {
+            Vec3::new(0.0, 1.0, 0.0)
+        };
+        let small_spot_center_dir = self.spot_dir.cross(&up).unit_vector();
+
+        if (1.0 - p.dot(&small_spot_center_dir)) < 0.08 {
+            return get_number_spot_color(p, small_spot_center_dir);
+        }
+
+        // If not in any spot, return the base stripe color
+        self.albedo
+    }
+}
+
+/// Helper to calculate a blended scatter direction between diffuse and reflective.
+fn calculate_mixed_scatter_direction(r_in: &Ray, rec: &HitRecord, fuzz: f64, blend: f64) -> Vec3 {
+    let reflected = vec3::reflect(r_in.direction().unit_vector(), rec.normal);
+    let diffuse_dir = rec.normal + vec3::random_unit_vector();
+    let reflected_dir = reflected + fuzz * vec3::random_in_unit_sphere();
+    Vec3::lerp(diffuse_dir, reflected_dir, blend)
 }
  
-impl Material for Spots {
+impl Material for Striped {
     fn scatter(
         &self,
         r_in: &Ray,
@@ -165,130 +187,12 @@ impl Material for Spots {
         attenuation: &mut Vec3,
         scattered: &mut Ray,
     ) -> bool {
-        let reflected = vec3::reflect(r_in.direction().unit_vector(), rec.normal);
-        let diffuse_dir = rec.normal + vec3::random_unit_vector();
-        let reflected_dir = reflected + self.fuzz * vec3::random_in_unit_sphere();
-
-        // blend diffuse and reflection
-        let blend = 0.35;
-        let scatter_dir = Vec3::lerp(diffuse_dir, reflected_dir, blend);
+        const SCATTER_BLEND: f64 = 0.35;
+        let scatter_dir = calculate_mixed_scatter_direction(r_in, rec, self.fuzz, SCATTER_BLEND);
         *scattered = Ray::new(rec.p, scatter_dir);
-
-        // determine spot colors
-        let p = (rec.p - self.center).unit_vector();
-        let main_dir = self.spot_dir;
-        let opposite_dir = -main_dir;
-        let spot_centers = [main_dir, opposite_dir];
-
-         // Start with base ball color
-        let mut final_color = self.albedo;
-
-        // Big white/tan spots
-        let spot_radius = 0.50;
-        for c in spot_centers.iter() {
-            let dist = p.dot(&c);
-            if dist > (1.0 - spot_radius) {
-                 final_color = Color::new(0.72, 0.50, 0.35); // warm white/tan
-                break;
-            }
-        }
-
-// === Small circle between the big ones ===
-
-// Choose perpendicular direction
-let up = if main_dir.y().abs() > 0.9 {
-    Vec3::new(1.0, 0.0, 0.0)
-} else {
-    Vec3::new(0.0, 1.0, 0.0)
-};
-let small_spot_dir = main_dir.cross(&up).unit_vector();
-
-// parameters
-let small_spot_radius = 0.08;       // radius of white spot
-let outer_rim_thickness = 0.008;     // black rim
-let inner_black_ring_radius = 0.02; // radius of inner black "0"
-let inner_ring_thickness = 0.012;    // thickness of inner black ring
-
-let dist_mid = p.dot(&small_spot_dir);
-let angle_diff = 1.0 - dist_mid.abs();
-
- // Only modify final_color if inside small spot
-        if angle_diff < small_spot_radius {
-            // Base small spot color (white)
-            let mut spot_color = Color::new(0.72, 0.50, 0.35);
-
-            // Outer black rim
-            if angle_diff > (small_spot_radius - outer_rim_thickness) {
-                spot_color = Color::new(0.0, 0.0, 0.0);
-            }
-
-            // Inner black ring ("0")
-            if angle_diff < inner_black_ring_radius && angle_diff > (inner_black_ring_radius - inner_ring_thickness) {
-                spot_color = Color::new(0.0, 0.0, 0.0);
-            }
-
-            // Layer on top of big spot
-            final_color = spot_color;
-        }
-
-        *attenuation = final_color;
-
+        *attenuation = self.get_striped_ball_color(&rec.p);
+        
         scattered.direction().dot(&rec.normal) > 0.0
     }
 }
 
-
-
-pub struct Dielectric {
-    ir: f64, // Index of refraction
-}
- 
-impl Dielectric {
-    pub fn new(index_of_refraction: f64) -> Dielectric {
-        Dielectric {
-            ir: index_of_refraction,
-        }
-    }
- 
-    fn reflectance(cosine: f64, ref_idx: f64) -> f64 {
-        // Use Schlick's approximation for reflectance
-        let mut r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
-        r0 = r0 * r0;
-        r0 + (1.0 - r0) * f64::powf(1.0 - cosine, 5.0)
-    }
-}
- 
-impl Material for Dielectric {
-    fn scatter(
-        &self,
-        r_in: &Ray,
-        rec: &HitRecord,
-        attenuation: &mut Color,
-        scattered: &mut Ray,
-    ) -> bool {
-        let refraction_ratio = if rec.front_face {
-            1.0 / self.ir
-        } else {
-            self.ir
-        };
-
-
-        let unit_direction = r_in.direction().unit_vector(); // normalized ray direction
-        let cos_theta = f64::min((-unit_direction).dot(&rec.normal), 1.0);
-
-        let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
- 
-        let cannot_refract = refraction_ratio * sin_theta > 1.0;
-        let direction = if cannot_refract
-            || Self::reflectance(cos_theta, refraction_ratio) > common::random_double()
-        {
-            vec3::reflect(unit_direction, rec.normal)
-        } else {
-            vec3::refract(unit_direction, rec.normal, refraction_ratio)
-        };
- 
-        *attenuation = Color::new(1.0, 1.0, 1.0);
-        *scattered = Ray::new(rec.p, direction);
-        true
-    }
-}
