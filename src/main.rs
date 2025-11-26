@@ -8,7 +8,7 @@ mod ray;
 mod sphere;
 mod vec3;
 mod light;
-use crate::{light::{compute_light, PointLight}, material::{Material, Striped}, vec3::Point3};
+use crate::{light::{compute_light, PointLight}, material::{Material, NumberType, Striped}, vec3::Point3};
  
 use std::io;
 use std::rc::Rc;
@@ -109,10 +109,16 @@ let color = random_billiard_color(count_balls);
     let fuzz = 0.01;
     let spot_dir = vec3::random_unit_vector();
 
-    let sphere_material: Rc<dyn Material> = if color.is_spots {
-        Rc::new(Striped::new(color.color, fuzz, center))
+    let number_type = if count_balls % 2 == 0 {
+        NumberType::Line
     } else {
-        Rc::new(Metal::new(color.color, fuzz, center, spot_dir))
+        NumberType::Circle
+    };
+
+    let sphere_material: Rc<dyn Material> = if color.is_spots {
+        Rc::new(Striped::new(color.color, fuzz, center, number_type))
+    } else {
+        Rc::new(Metal::new(color.color, fuzz, center, spot_dir, number_type))
     };
 
     world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
