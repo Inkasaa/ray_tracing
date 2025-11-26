@@ -1,7 +1,7 @@
 use crate::color::Color;
 use crate::hittable::HitRecord;
 use crate::ray::Ray;
-use crate::{common, vec3};
+use crate::vec3;
 use crate::vec3::{Point3, Vec3};
  
 // --- Constants for Billiard Ball Spot Rendering ---
@@ -100,7 +100,7 @@ fn get_number_spot_color(p_normalized: Vec3, spot_center_dir: Vec3, number_type:
 
     // Parameters controlling the look of the spot
     const NBR_SPOT_RADIUS: f64 = 0.08;
-    const OUTER_BLACK_RIM_THICKNESS: f64 = 0.0135;
+    const OUTER_BLACK_RIM_THICKNESS: f64 = 0.015;
     const OUTER_WHITE_RING_THICKNESS: f64 = 0.0135; // This creates the white ring at the edge.
     const LINE_THICKNESS: f64 = 0.05; // Increased from 0.02 to make the line thicker
     const CIRCLE_THICKNESS: f64 = 0.015; 

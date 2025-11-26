@@ -1,16 +1,18 @@
 mod camera;
 mod color;
 mod common;
+mod cuboid;
 mod hittable;
 mod hittable_list;
 mod material;
+mod plane;
 mod ray;
 mod sphere;
 mod vec3;
 mod light;
-use crate::{light::{compute_light, PointLight}, material::{Material, NumberType, Striped}, vec3::Point3};
+use crate::{cuboid::Cuboid, light::{compute_light, PointLight}, material::{Material, NumberType, Striped}, plane::Plane, vec3::{Point3, Vec3}};
  
-use std::io;
+use std::{env, fs::File, io::{BufWriter, Write}};
 use std::rc::Rc;
 
 use common::*;
@@ -87,102 +89,134 @@ fn random_scene() -> HittableList {
     let mut world = HittableList::new();
  
     let ground_material = Rc::new(Lambertian::new(Color::new(0.099, 0.172, 0.095))); //original: 0.5, 0.5, 0.5
-    world.add(Box::new(Sphere::new( //huge sphere                                                   //pink: 0.55, 0.252, 0.192
-        Point3::new(0.0, -1000.0, 0.0),
-        1000.0,
+    world.add(Box::new(Plane::new(
+        Point3::new(0.0, 0.0, 0.0),    // A point on the plane (the origin)
+        Vec3::new(0.0, 1.0, 0.0),      // The normal vector (pointing straight up)
         ground_material,
     )));
 
+    // Add a small cube to the scene
+    let box_material = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
+    world.add(Box::new(Cuboid::new(
+        Point3::new(-1.5, 0.0, 0.5),
+        Point3::new(-1.1, 0.4, 0.9),
+        box_material,
+    )));
+
  let mut count_balls = 0;
+ let nbr_of_balls = 16;
     for a in -1..3 {
-        for b in -1..3 {
-           // let choose_mat = common::random_double();
-            let center = Point3::new(
-                a as f64 + 0.9 * common::random_double(), //0.9
-                0.2,  
-                b as f64 + 0.9 * common::random_double(), //0.9
-            );
+        for b in -1..4 {
+            if count_balls <= nbr_of_balls {
+                let center = Point3::new(
+                    a as f64 + 0.7 * common::random_double(),
+                    0.2,
+                    b as f64 + 0.7 * common::random_double(),
+                );
 
-let color = random_billiard_color(count_balls);
-   count_balls += 1;
+                let color = random_billiard_color(count_balls);
 
-    let fuzz = 0.01;
-    let spot_dir = vec3::random_unit_vector();
+                let fuzz = 0.01;
+                let spot_dir = vec3::random_unit_vector();
 
-    let number_type = if count_balls % 2 == 0 {
-        NumberType::Line
-    } else {
-        NumberType::Circle
-    };
+                let number_type = if count_balls % 2 == 0 {
+                    NumberType::Line
+                } else {
+                    NumberType::Circle
+                };
 
-    let sphere_material: Rc<dyn Material> = if color.is_spots {
-        Rc::new(Striped::new(color.color, fuzz, center, number_type))
-    } else {
-        Rc::new(Metal::new(color.color, fuzz, center, spot_dir, number_type))
-    };
+                let sphere_material: Rc<dyn Material> = if color.is_spots {
+                    Rc::new(Striped::new(color.color, fuzz, center, number_type))
+                } else {
+                    Rc::new(Metal::new(color.color, fuzz, center, spot_dir, number_type))
+                };
 
-    world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
+                world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
 
-                } 
+                count_balls += 1;
+            }
+        }
     }
- 
-
- 
     world
 }
  
 fn main() {
     // Image
- 
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
     const IMAGE_WIDTH: i32 = 600;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 100;
  
+    // Animation
+    const ROTATION_DEGREES: f64 = 360.0; // Full 360-degree rotation
+
+    // Get number of frames from command-line argument, with a default value.
+    let args: Vec<String> = env::args().collect();
+    let num_frames = if args.len() > 1 {
+        args[1].parse().unwrap_or(20)
+    } else {
+        60 // Default number of frames
+    };
+
     // World
- 
     let world = random_scene();
  
-    // Camera
- 
-    let lookfrom = Point3::new(8.0, 3.0, 4.0);
-    let lookat = Point3::new(0.0, 0.0, 0.0);
-    let vup = Point3::new(0.0, 1.0, 0.0);
-    let dist_to_focus = 20.0;
-    let aperture = 0.01;
- 
-    let cam = Camera::new(
-        lookfrom,
-        lookat,
-        vup,
-        20.0,
-        ASPECT_RATIO,
-        aperture,
-        dist_to_focus,
-    );
-
     let intensity = 0.75;
     let lights = vec![
-    PointLight::new(Point3::new(0.0, 5.0, 4.0), Color::new(1.0, 0.85, 0.6), intensity), // overhead lamp
-];
+        PointLight::new(Point3::new(0.0, 5.0, 4.0), Color::new(1.0, 0.85, 0.6), intensity), // overhead lamp
+    ];
 
- 
-    // Render
- 
-    print!("P3\n{} {}\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
- 
-    for j in (0..IMAGE_HEIGHT).rev() {
-        eprint!("\rScanlines remaining: {} ", j);
-        for i in 0..IMAGE_WIDTH {
-            let mut pixel_color = Color::new(0.0, 0.0, 0.0);
-            for _ in 0..SAMPLES_PER_PIXEL {
-                let u = (i as f64 + common::random_double()) / (IMAGE_WIDTH - 1) as f64;
-                let v = (j as f64 + common::random_double()) / (IMAGE_HEIGHT - 1) as f64;
-                let r = cam.get_ray(u, v);
-                pixel_color += ray_color(&r, &world, &lights, MAX_DEPTH);
+    // --- Render Loop for Video ---
+    for frame in 0..num_frames {
+        // --- Calculate Camera Position for this frame ---
+        let lookat = Point3::new(0.85, 0.2, 1.35);
+        let vup = Point3::new(0.0, 1.0, 0.0);
+        let dist_to_focus = 15.0;
+        let aperture = 0.01;
+
+        // Orbit parameters
+        let radius = 6.5; // Distance from lookat point in the XZ plane
+        let start_angle_rad = 0.46; // Initial angle to match the original view
+        let angle_step = degrees_to_radians(ROTATION_DEGREES) / num_frames as f64;
+        let current_angle = start_angle_rad + frame as f64 * angle_step;
+
+        let lookfrom = Point3::new(
+            lookat.x() + radius * current_angle.cos(),
+            3.0, // Keep camera height constant
+            lookat.z() + radius * current_angle.sin()
+        );
+
+        let cam = Camera::new(
+            lookfrom,
+            lookat,
+            vup,
+            20.0,
+            ASPECT_RATIO,
+            aperture,
+            dist_to_focus,
+        );
+
+        // --- Render a single frame ---
+        let filename = format!("output/frame_{:03}.ppm", frame);
+        eprintln!("\nRendering frame {}/{} to {}", frame + 1, num_frames, filename);
+        let file = File::create(&filename).expect("Failed to create file.");
+        let mut writer = BufWriter::new(file);
+
+        writeln!(&mut writer, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT).expect("writing header");
+
+        for j in (0..IMAGE_HEIGHT).rev() {
+            eprint!("\rScanlines remaining: {} ", j);
+            for i in 0..IMAGE_WIDTH {
+                let mut pixel_color = Color::new(0.0, 0.0, 0.0);
+                for _ in 0..SAMPLES_PER_PIXEL {
+                    let u = (i as f64 + common::random_double()) / (IMAGE_WIDTH - 1) as f64;
+                    let v = (j as f64 + common::random_double()) / (IMAGE_HEIGHT - 1) as f64;
+                    let r = cam.get_ray(u, v);
+                    pixel_color += ray_color(&r, &world, &lights, MAX_DEPTH);
+                }
+                color::write_color(&mut writer, pixel_color, SAMPLES_PER_PIXEL);
             }
-            color::write_color(&mut io::stdout(), pixel_color, SAMPLES_PER_PIXEL);
         }
     }
  
