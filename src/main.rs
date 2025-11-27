@@ -20,7 +20,7 @@ use camera::Camera;
 use color::Color;
 use hittable::{HitRecord, Hittable};
 use hittable_list::HittableList; 
-use material::{Lambertian, Metal};
+use material::{Lambertian, Metal, LambertianNoise};
 use ray::Ray;
 use sphere::Sphere;
  
@@ -88,7 +88,9 @@ fn ray_color(r: &Ray, world: &dyn Hittable,lights: &[PointLight], depth: i32) ->
 fn random_scene() -> HittableList {
     let mut world = HittableList::new();
  
-    let ground_material = Rc::new(Lambertian::new(Color::new(0.099, 0.172, 0.095))); //original: 0.5, 0.5, 0.5
+    // Ground material with a subtle Perlin noise texture (marble-like)
+    // Increased scale for finer (smaller) features
+    let ground_material = Rc::new(LambertianNoise::new(Color::new(0.099, 0.172, 0.095), 150.0)); //original: 0.5, 0.5, 0.5
     world.add(Box::new(Plane::new(
         Point3::new(0.0, 0.0, 0.0),    // A point on the plane (the origin)
         Vec3::new(0.0, 1.0, 0.0),      // The normal vector (pointing straight up)
@@ -96,12 +98,12 @@ fn random_scene() -> HittableList {
     )));
 
     // Add a small cube to the scene
-    let box_material = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
-    world.add(Box::new(Cuboid::new(
-        Point3::new(-1.5, 0.0, 0.5),
-        Point3::new(-1.1, 0.4, 0.9),
-        box_material,
-    )));
+   // let box_material = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
+   // world.add(Box::new(Cuboid::new(
+   //     Point3::new(-1.5, 0.0, 0.5),
+   //     Point3::new(-1.1, 0.4, 0.9),
+    //    box_material,
+   // )));
 
  let mut count_balls = 0;
  let nbr_of_balls = 16;
@@ -143,7 +145,7 @@ fn random_scene() -> HittableList {
 fn main() {
     // Image
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 600;
+    const IMAGE_WIDTH: i32 = 400;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 100;
@@ -172,8 +174,8 @@ fn main() {
         // --- Calculate Camera Position for this frame ---
         let lookat = Point3::new(0.85, 0.2, 1.35);
         let vup = Point3::new(0.0, 1.0, 0.0);
-        let dist_to_focus = 15.0;
-        let aperture = 0.01;
+        let dist_to_focus = 6.0;
+        let aperture = 0.02; //0.0 pinhole 0.05 noticably blur
 
         // Orbit parameters
         let radius = 6.5; // Distance from lookat point in the XZ plane
@@ -183,7 +185,7 @@ fn main() {
 
         let lookfrom = Point3::new(
             lookat.x() + radius * current_angle.cos(),
-            3.0, // Keep camera height constant
+            3.5, // Keep camera height constant
             lookat.z() + radius * current_angle.sin()
         );
 
@@ -196,6 +198,9 @@ fn main() {
             aperture,
             dist_to_focus,
         );
+
+        // Debug: print image and camera settings for verification
+        eprintln!("DEBUG: IMAGE_WIDTH = {}, IMAGE_HEIGHT = {}, lookfrom_y = {}", IMAGE_WIDTH, IMAGE_HEIGHT, lookfrom.y());
 
         // --- Render a single frame ---
         let filename = format!("output/frame_{:03}.ppm", frame);

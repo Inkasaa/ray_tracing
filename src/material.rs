@@ -242,3 +242,146 @@ impl Material for Striped {
         scattered.direction().dot(&rec.normal) > 0.0
     }
 }
+
+// ------------------ Perlin noise implementation ------------------
+pub struct Perlin {
+    ranvec: [Vec3; 256],
+    perm_x: [usize; 256],
+    perm_y: [usize; 256],
+    perm_z: [usize; 256],
+}
+
+impl Perlin {
+    pub fn new() -> Perlin {
+        let mut ranvec: [Vec3; 256] = [Vec3::new(0.0, 0.0, 0.0); 256];
+        for i in 0..256 {
+            ranvec[i] = vec3::random_unit_vector();
+        }
+
+        fn perlin_generate_perm() -> [usize; 256] {
+            let mut p: [usize; 256] = [0; 256];
+            for i in 0..256 { p[i] = i; }
+            for i in (1..256).rev() {
+                let target = (crate::common::random_double() * (i as f64 + 1.0)) as usize;
+                p.swap(i, target);
+            }
+            p
+        }
+
+        Perlin {
+            ranvec,
+            perm_x: perlin_generate_perm(),
+            perm_y: perlin_generate_perm(),
+            perm_z: perlin_generate_perm(),
+        }
+    }
+
+    fn perlin_interp(c: &[[[Vec3; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
+        // Hermite smoothing function
+        let uu = u * u * (3.0 - 2.0 * u);
+        let vv = v * v * (3.0 - 2.0 * v);
+        let ww = w * w * (3.0 - 2.0 * w);
+        let mut accum = 0.0;
+        for i in 0..2 {
+            for j in 0..2 {
+                for k in 0..2 {
+                    let weight_v = Vec3::new(u - i as f64, v - j as f64, w - k as f64);
+                    let dot = c[i][j][k].dot(&weight_v);
+                    let fi = i as f64;
+                    let fj = j as f64;
+                    let fk = k as f64;
+                    let blend = (fi * uu + (1.0 - fi) * (1.0 - uu)) *
+                                (fj * vv + (1.0 - fj) * (1.0 - vv)) *
+                                (fk * ww + (1.0 - fk) * (1.0 - ww));
+                    accum += blend * dot;
+                }
+            }
+        }
+        accum
+    }
+
+    pub fn noise(&self, p: &Point3) -> f64 {
+        let u = p.x() - f64::floor(p.x());
+        let v = p.y() - f64::floor(p.y());
+        let w = p.z() - f64::floor(p.z());
+        let i = f64::floor(p.x()) as i32;
+        let j = f64::floor(p.y()) as i32;
+        let k = f64::floor(p.z()) as i32;
+
+        let mut c: [[[Vec3; 2]; 2]; 2] = [[[Vec3::new(0.0,0.0,0.0); 2]; 2]; 2];
+        for di in 0..2 {
+            for dj in 0..2 {
+                for dk in 0..2 {
+                    let idx = self.perm_x[((i + di as i32) & 255) as usize]
+                        ^ self.perm_y[((j + dj as i32) & 255) as usize]
+                        ^ self.perm_z[((k + dk as i32) & 255) as usize];
+                    c[di][dj][dk] = self.ranvec[idx];
+                }
+            }
+        }
+
+        Perlin::perlin_interp(&c, u, v, w)
+    }
+
+    pub fn turbulence(&self, mut p: Point3, depth: i32) -> f64 {
+        let mut accum = 0.0;
+        let mut weight = 1.0;
+        for _ in 0..depth {
+            accum += weight * self.noise(&p);
+            weight *= 0.5;
+            p = p * 2.0;
+        }
+        accum.abs()
+    }
+}
+
+// ------------------ Lambertian material with Perlin texture ------------------
+pub struct LambertianNoise {
+    color: Color,
+    scale: f64,
+    perlin: Perlin,
+}
+
+impl LambertianNoise {
+    pub fn new(base_color: Color, scale: f64) -> LambertianNoise {
+        LambertianNoise { color: base_color, scale, perlin: Perlin::new() }
+    }
+}
+
+impl Material for LambertianNoise {
+    fn scatter(
+        &self,
+        _r_in: &Ray,
+        rec: &HitRecord,
+        attenuation: &mut Color,
+        scattered: &mut Ray,
+    ) -> bool {
+        let mut scatter_direction = rec.normal + vec3::random_unit_vector();
+        if scatter_direction.near_zero() {
+            scatter_direction = rec.normal;
+        }
+    // Stronger fabric-like variation (higher contrast, more visible):
+    // - sample turbulence in 3D at the hit point scaled by `scale`
+    // - use extra octaves and a small spatial warp to avoid banding
+    let warp = Vec3::new(rec.p.x() * 0.12, rec.p.y() * 0.08, rec.p.z() * 0.04);
+    let sample_point = (rec.p + warp) * self.scale;
+    // increase depth for richer turbulence
+    let turb = self.perlin.turbulence(sample_point, 10);
+    // amplify and bias the turbulence for stronger contrast
+    let noise = crate::common::clamp((turb * 1.4).powf(1.2), 0.0, 1.0);
+    // Make factor span a wider range so variation is noticeable but not destructive
+    let base = 0.35; // minimum lighting multiplier
+    let amp = 1.45;  // amplitude
+    let factor = base + amp * noise; // roughly [0.35, 1.8]
+
+    // Add subtle per-channel variation to imitate dyed fabric threads
+    let r_fac = factor * (0.86 + 0.07 * noise);
+    let g_fac = factor * (1.00 + 0.06 * noise);
+    let b_fac = factor * (0.94 + 0.04 * noise);
+
+    let tint = Vec3::new(self.color.x() * r_fac, self.color.y() * g_fac, self.color.z() * b_fac);
+    *attenuation = tint;
+        *scattered = Ray::new(rec.p, scatter_direction);
+        true
+    }
+}
