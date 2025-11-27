@@ -2,6 +2,7 @@ mod camera;
 mod color;
 mod common;
 mod cuboid;
+mod cylinder;
 mod hittable;
 mod hittable_list;
 mod material;
@@ -10,7 +11,7 @@ mod ray;
 mod sphere;
 mod vec3;
 mod light;
-use crate::{cuboid::Cuboid, light::{compute_light, PointLight}, material::{Material, NumberType, Striped}, plane::Plane, vec3::{Point3, Vec3}};
+use crate::{cuboid::Cuboid, cylinder::Cylinder, light::{compute_light, PointLight}, material::{Material, NumberType, Striped}, plane::Plane, vec3::{Point3, Vec3}};
  
 use std::{env, fs::File, io::{BufWriter, Write}};
 use std::rc::Rc;
@@ -90,7 +91,7 @@ fn random_scene() -> HittableList {
  
     // Ground material with a subtle Perlin noise texture (marble-like)
     // Increased scale for finer (smaller) features
-    let ground_material = Rc::new(LambertianNoise::new(Color::new(0.099, 0.172, 0.095), 150.0)); //original: 0.5, 0.5, 0.5
+    let ground_material = Rc::new(LambertianNoise::new(Color::new(0.099, 0.172, 0.095), 200.0)); 
     world.add(Box::new(Plane::new(
         Point3::new(0.0, 0.0, 0.0),    // A point on the plane (the origin)
         Vec3::new(0.0, 1.0, 0.0),      // The normal vector (pointing straight up)
@@ -98,13 +99,22 @@ fn random_scene() -> HittableList {
     )));
 
     // Add a small cube to the scene
-   // let box_material = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
-   // world.add(Box::new(Cuboid::new(
-   //     Point3::new(-1.5, 0.0, 0.5),
-   //     Point3::new(-1.1, 0.4, 0.9),
-    //    box_material,
-   // )));
+    let box_material = Rc::new(Lambertian::new(Color::new(0.12, 0.20, 0.15))); // Muted green
+    world.add(Box::new(Cuboid::new(
+        Point3::new(1.5, 0.0, 3.0), //X = Width, Y = Height, Z = Depth
+        Point3::new(1.7, 0.2, 3.2),
+        box_material,
+    )));
 
+    // Add a cylinder to the scene
+    let cylinder_material = Rc::new(Lambertian::new(Color::new(0.3, 0.15, 0.05))); // Brown
+    world.add(Box::new(Cylinder::new(
+        Point3::new(1.65, 0.23, 3.1), // starting point
+        Point3::new(4.0, 1.0, -0.10), // ending point (towards camera)
+        0.04, // Thin radius
+        cylinder_material,
+    )));
+ 
  let mut count_balls = 0;
  let nbr_of_balls = 16;
     for a in -1..3 {
@@ -145,7 +155,7 @@ fn random_scene() -> HittableList {
 fn main() {
     // Image
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 400;
+    const IMAGE_WIDTH: i32 = 800;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 100;

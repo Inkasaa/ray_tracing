@@ -376,7 +376,7 @@ impl Material for LambertianNoise {
 
     // Add subtle per-channel variation to imitate dyed fabric threads
     let r_fac = factor * (0.86 + 0.07 * noise);
-    let g_fac = factor * (1.00 + 0.06 * noise);
+    let g_fac = factor * (1.00 + 0.05 * noise);
     let b_fac = factor * (0.94 + 0.04 * noise);
 
     let tint = Vec3::new(self.color.x() * r_fac, self.color.y() * g_fac, self.color.z() * b_fac);
