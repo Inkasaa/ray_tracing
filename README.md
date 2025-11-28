@@ -22,7 +22,7 @@ cargo build --release
 
 
 ## Toggle parameters
-- argument 1: scene id (default 3)
-- argument 2: width (default 400)
-- argument 3: height (default 300)
-- argument 4: max recursion depth for reflections (default 3)
+- argument 1: 
+- argument 2: 
+- argument 3: 
+- argument 4: 

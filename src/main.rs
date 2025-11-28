@@ -85,7 +85,40 @@ fn ray_color(r: &Ray, world: &dyn Hittable,lights: &[PointLight], depth: i32) ->
     let t = 0.5 * (unit_direction.y() + 1.0);
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
 }
- 
+/* 
+//fn a_sphere() -> HittableList {
+//    let mut world = HittableList::new();
+//    let center = Point3::new(
+//                    a as f64 + 0.7 * common::random_double(),
+//                    0.2,
+//                    b as f64 + 0.7 * common::random_double(),
+                );
+
+                let color = random_billiard_color(count_balls);
+
+                let fuzz = 0.01;
+                let spot_dir = vec3::random_unit_vector();
+
+                let number_type = if count_balls % 2 == 0 {
+                    NumberType::Line
+                } else {
+                    NumberType::Circle
+                };
+
+                let sphere_material: Rc<dyn Material> = if color.is_spots {
+                    Rc::new(Striped::new(color.color, fuzz, center, number_type))
+                } else {
+                    Rc::new(Metal::new(color.color, fuzz, center, spot_dir, number_type))
+                };
+
+                world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
+
+                count_balls += 1;
+            }
+        }
+    world
+}
+*/ 
 fn random_scene() -> HittableList {
     let mut world = HittableList::new();
  
@@ -170,6 +203,12 @@ fn main() {
     } else {
         60 // Default number of frames
     };
+
+    //Match 
+    //if argument = random 
+    //            = a sphere
+    //            = a flat plane and a cube
+    //            = a cylinder
 
     // World
     let world = random_scene();
