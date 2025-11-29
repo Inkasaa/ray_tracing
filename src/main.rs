@@ -11,7 +11,9 @@ mod ray;
 mod sphere;
 mod vec3;
 mod light;
+mod scene_builder;
 use crate::{cuboid::Cuboid, cylinder::Cylinder, light::{compute_light, PointLight}, material::{Material, NumberType, Striped}, plane::Plane, vec3::{Point3, Vec3}};
+use crate::scene_builder::build_custom_scene;
  
 use std::{env, fs::File, io::{BufWriter, Write}};
 use std::rc::Rc;
@@ -25,7 +27,7 @@ use material::{Lambertian, Metal, LambertianNoise};
 use ray::Ray;
 use sphere::Sphere;
  
-fn ray_color(r: &Ray, world: &dyn Hittable,lights: &[PointLight], depth: i32) -> Color {
+fn ray_color(r: &Ray, world: &dyn Hittable, lights: &[PointLight], depth: i32, bg_color: Option<Color>) -> Color {
     // If we've exceeded the ray bounce limit, no more light is gathered
     if depth <= 0 {
         return Color::new(0.0, 0.0, 0.0);
@@ -40,7 +42,7 @@ fn ray_color(r: &Ray, world: &dyn Hittable,lights: &[PointLight], depth: i32) ->
             let mut scattered = Ray::default();
             let indirect_light = if let Some(mat) = &rec.mat {
                 if mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
-                    attenuation * ray_color(&scattered, world, lights, depth - 1)
+                    attenuation * ray_color(&scattered, world, lights, depth - 1, bg_color)
                 } else {
                     Color::new(0.0, 0.0, 0.0)
                 }
@@ -80,10 +82,16 @@ fn ray_color(r: &Ray, world: &dyn Hittable,lights: &[PointLight], depth: i32) ->
             return indirect_light + direct_light;
     }
 
-    //Background gradient
-    let unit_direction = r.direction().unit_vector();
-    let t = 0.5 * (unit_direction.y() + 1.0);
-    (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
+    // Background: use custom color if provided, otherwise use gradient
+    if let Some(custom_bg) = bg_color {
+        // Use solid custom background color (no gradient)
+        custom_bg
+    } else {
+        // Default gradient: white to light blue
+        let unit_direction = r.direction().unit_vector();
+        let t = 0.5 * (unit_direction.y() + 1.0);
+        (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
+    }
 }
 /* 
 //fn a_sphere() -> HittableList {
@@ -188,7 +196,7 @@ fn random_scene() -> HittableList {
 fn main() {
     // Image
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 800;
+    const IMAGE_WIDTH: i32 = 200;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 100;
@@ -210,8 +218,26 @@ fn main() {
     //            = a flat plane and a cube
     //            = a cylinder
 
-    // World
-    let world = random_scene();
+    // World and background color: use custom scene if --custom flag is present, otherwise use random_scene
+    let (world, custom_bg_color) = if args.iter().any(|s| s == "--custom") {
+        match build_custom_scene(&args) {
+            Some(custom_scene) => {
+                eprintln!("Using custom billiard ball scene from CLI arguments");
+                (custom_scene.world, custom_scene.background_color)
+            }
+            None => {
+                eprintln!("Failed to parse custom scene, falling back to random_scene");
+                (random_scene(), None)
+            }
+        }
+    } else {
+        (random_scene(), None)
+    };
+    if let Some(bg) = custom_bg_color {
+        eprintln!("DEBUG: custom_bg_color = {:?}", bg);
+    } else {
+        eprintln!("DEBUG: custom_bg_color = None (using default gradient)");
+    }
  
     let intensity = 0.75;
     let lights = vec![
@@ -227,7 +253,7 @@ fn main() {
         let aperture = 0.02; //0.0 pinhole 0.05 noticably blur
 
         // Orbit parameters
-        let radius = 6.5; // Distance from lookat point in the XZ plane
+        let radius = 60.5; // Distance from lookat point in the XZ plane
         let start_angle_rad = 0.46; // Initial angle to match the original view
         let angle_step = degrees_to_radians(ROTATION_DEGREES) / num_frames as f64;
         let current_angle = start_angle_rad + frame as f64 * angle_step;
@@ -267,7 +293,7 @@ fn main() {
                     let u = (i as f64 + common::random_double()) / (IMAGE_WIDTH - 1) as f64;
                     let v = (j as f64 + common::random_double()) / (IMAGE_HEIGHT - 1) as f64;
                     let r = cam.get_ray(u, v);
-                    pixel_color += ray_color(&r, &world, &lights, MAX_DEPTH);
+                    pixel_color += ray_color(&r, &world, &lights, MAX_DEPTH, custom_bg_color);
                 }
                 color::write_color(&mut writer, pixel_color, SAMPLES_PER_PIXEL);
             }
