@@ -10,7 +10,7 @@ This is a compact educational ray tracer in one source file that outputs an ASCI
 ```bash
 cargo build --release
 # produce an image (scene 3, 800x600, recursion depth 3)
-./target/release/ray-tracing 3 800 600 3 > output.ppm
+./target/release/ray-tracing > output.ppm
 ```
 
 
@@ -21,11 +21,6 @@ cargo build --release
 4 - same as 3 but different camera position
 
 
-## Toggle parameters
-- argument 1: 
-- argument 2: 
-- argument 3: 
-- argument 4: 
 
 First ball: --ball 0 0.2 1 0 5
 
@@ -38,9 +33,10 @@ First ball: --ball 0 0.2 1 0 5
 ## Custom Scene Arguments
 
 ### Balls
-`--ball x y z [number_type] [color]`
+`--ball x y z [0 or 1] [color]`
+
 - x, y, z = position coordinates
-- number_type (optional): 0 = Circle, 1 = Line (random if omitted)
+-0 = Circle, 1 = Line (random if omitted)
 - color (optional): 0-16 billiard ball index (random if omitted)
 
 Example: `--ball 0 0.2 1 0 5` → Line ball at (0, 0.2, 1) with Yellow color
@@ -72,3 +68,9 @@ Example: `--bg 16` → White background
 ```
 Creates: Maroon ground plane + Circle green ball + White background
 
+./target/release/ray-tracing 1 --custom \
+  --plane 0 0 0 0 1 0 7 \
+  --ball 0 0.2 1 1 15 \
+  --ball 1 0.2 1 1 12 \
+ --ball 2 0.2 1 1 11 \
+ --ball 3 0.2 1 1 10 \
