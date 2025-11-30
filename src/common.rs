@@ -80,16 +80,17 @@ pub fn  random_billiard_color(count: usize) -> Albedo {
 }
 
 /// Ground color palette - billiard table felt colors
-/// Index 0-9 for different felt colors commonly used on pool tables
+/// Index 0-4 for different felt colors commonly used on pool tables
 pub fn ground_color(index: usize) -> Color {
     let ground_colors = vec![
         Color::new(0.099, 0.172, 0.095), // 0: Tournament Green (default, same as random scene)
-        Color::new(0.08, 0.12, 0.16),    // 4: Electric Blue
-        Color::new(0.18, 0.04, 0.04),    // 5: Burgundy/Wine Red
-        Color::new(0.25, 0.22, 0.18),    // 7: Camel/Tan (vintage)
-        Color::new(0.15, 0.15, 0.15),    // 8: Charcoal Grey
-        Color::new(0.08, 0.06, 0.10),    // 9: Purple (modern)
+        Color::new(0.099, 0.172, 0.195),    // 1: Electric Blue
+        Color::new(0.36, 0.06, 0.07),    // 2: Burgundy/Wine Red
+        Color::new(0.09, 0.3, 0.11),    // 3: PAF green
+        Color::new(0.038, 0.088, 0.068),    // 4: PAF dark 
+         Color::new(0.012, 0.043, 0.032),    // 5: PAF dark smooth
     ];
+    //rgb01(0.33, 0.61, 0.64)
 
     if index < ground_colors.len() {
         ground_colors[index]
