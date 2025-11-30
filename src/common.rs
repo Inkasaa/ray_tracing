@@ -62,7 +62,7 @@ pub fn  random_billiard_color(count: usize) -> Albedo {
             Color::new(0.03, 0.12, 0.05), // Green
             Color::new(0.22, 0.04, 0.03), // Maroon
             Color::new(0.02, 0.02, 0.02), // Black
-            
+
             Color::new(0.72, 0.50, 0.35), // White
         ];
 
@@ -77,4 +77,23 @@ pub fn  random_billiard_color(count: usize) -> Albedo {
     
     }
 
+}
+
+/// Ground color palette - billiard table felt colors
+/// Index 0-9 for different felt colors commonly used on pool tables
+pub fn ground_color(index: usize) -> Color {
+    let ground_colors = vec![
+        Color::new(0.099, 0.172, 0.095), // 0: Tournament Green (default, same as random scene)
+        Color::new(0.08, 0.12, 0.16),    // 4: Electric Blue
+        Color::new(0.18, 0.04, 0.04),    // 5: Burgundy/Wine Red
+        Color::new(0.25, 0.22, 0.18),    // 7: Camel/Tan (vintage)
+        Color::new(0.15, 0.15, 0.15),    // 8: Charcoal Grey
+        Color::new(0.08, 0.06, 0.10),    // 9: Purple (modern)
+    ];
+
+    if index < ground_colors.len() {
+        ground_colors[index]
+    } else {
+        ground_colors[0] // Default to tournament green
+    }
 }

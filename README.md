@@ -41,17 +41,32 @@ First ball: --ball 0 0.2 1 0 5
 
 Example: `--ball 0 0.2 1 0 5` → Line ball at (0, 0.2, 1) with Yellow color
 
-### Planes
-`--plane px py pz nx ny nz color`
-- px, py, pz = point on the plane (x, y, z coordinates)
-- nx, ny, nz = normal vector (direction perpendicular to plane surface)
-  - Normal vector defines plane orientation and how light bounces off
-  - Examples: (0, 1, 0) = horizontal ground, (-1, 0, 0) = vertical wall pointing left, (1, 0, 0) = vertical wall pointing right
-- color = 0-16 billiard ball color index
+<!-- The old --plane flag has been deprecated in favor of the simpler --ground convenience flag. -->
+
+### Ground (convenience)
+`--ground [--noise] [color]`
+- Creates a horizontal ground plane at the origin (0,0,0) with normal (0,1,0)
+- By default (no arguments), uses Perlin noise with tournament green felt
+- `--noise` flag enables Perlin noise texture
+- `color` (optional) = 0-9 billiard table felt color index:
+  - 0: Tournament Green (default)
+  - 1: Dark Green (traditional)
+  - 2: English Green
+  - 3: Navy Blue
+  - 4: Electric Blue
+  - 5: Burgundy/Wine Red
+  - 6: Dark Red
+  - 7: Camel/Tan (vintage)
+  - 8: Charcoal Grey
+  - 9: Purple (modern)
+- Without `--noise` and with a color index, creates a solid colored felt
 
 Examples:
-- `--plane 0 0 0 0 1 0 7` → Ground plane at y=0 with normal (0,1,0) pointing UP, Maroon color
-- `--plane 5 0 0 -1 0 0 1` → Vertical wall at x=5 with normal (-1,0,0) pointing LEFT, Blue color
+- `--ground` → Perlin noise ground with default tournament green
+- `--ground 3` → Solid navy blue felt (no noise)
+- `--ground --noise 3` → Navy blue felt with Perlin noise texture
+- `--ground --noise 5` → Burgundy felt with Perlin noise texture
+- `--ground 7` → Solid camel/tan vintage felt
 
 ### Background
 `--bg color`
@@ -62,15 +77,31 @@ Example: `--bg 16` → White background
 ### Full Example
 ```bash
 ./target/release/ray-tracing 1 --custom \
-  --plane 0 0 0 0 1 0 7 \
+  --ground 3 \
   --ball 0 0.2 1 1 3 \
   --bg 16
 ```
-Creates: Maroon ground plane + Circle green ball + White background
+Creates: Navy blue felt + Circle green ball + White background
 
+```bash
 ./target/release/ray-tracing 1 --custom \
-  --plane 0 0 0 0 1 0 7 \
+  --ground --noise 5 \
   --ball 0 0.2 1 1 15 \
   --ball 1 0.2 1 1 12 \
  --ball 2 0.2 1 1 11 \
  --ball 3 0.2 1 1 10 \
+
+  # Default noise ground (green)
+./target/release/ray-tracing 1 --custom --ground
+
+# Solid maroon ground (no noise)
+./target/release/ray-tracing 1 --custom --ground 7
+
+# Maroon noise ground (what you asked for!)
+./target/release/ray-tracing 1 --custom --ground --noise 7
+
+# Blue noise ground
+./target/release/ray-tracing 1 --custom --ground --noise 1
+
+# Any of the 17 billiard colors with noise texture
+./target/release/ray-tracing 1 --custom --ground --noise 5  # Yellow noise

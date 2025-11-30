@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
-use crate::common::{random_billiard_color, random_double};
+use crate::common::{random_billiard_color, random_double, ground_color};
 use crate::color::Color;
 use crate::hittable_list::HittableList;
-use crate::material::{Metal, NumberType, Lambertian};
+use crate::material::{Metal, NumberType, Lambertian, LambertianNoise};
 use crate::sphere::Sphere;
 use crate::plane::Plane;
 use crate::vec3::{Point3, Vec3};
@@ -49,6 +49,19 @@ pub fn parse_number_type(s: &str) -> Option<NumberType> {
     }
 }
 
+/// Parse ground color index (0-4) to get ground surface color.
+pub fn parse_ground_color(s: &str) -> Option<Color> {
+    let s = s.trim();
+    
+    if let Ok(index) = s.parse::<usize>() {
+        if index <= 4{
+            return Some(ground_color(index));
+        }
+    }
+    
+    None
+}
+
 /// Container for custom scene: world and optional background color.
 pub struct CustomScene {
     pub world: HittableList,
@@ -56,29 +69,35 @@ pub struct CustomScene {
 }
 
 /// Build a custom scene from CLI-style arguments.
-/// Format: --ball x y z [number_type] [color] ... [--plane px py pz nx ny nz color] ... [--bg color_or_index]
+/// Format: --ball x y z [number_type] [color] ... [--ground [--noise] [color]] ... [--bg color_or_index]
 /// 
 /// Ball args:
 /// - number_type: optional (0 = Circle, 1 = Line). If not provided, chosen randomly.
 /// - color: optional (ball index 0-16). If not provided, chosen randomly.
 ///
-/// Plane args:
-/// - px py pz: point on the plane
-/// - nx ny nz: normal vector (will be normalized)
-/// - color: ball index 0-16
+/// Ground args (convenience):
+/// - Optional --noise flag after --ground uses Perlin noise texture.
+/// - Optional color index 0-9 selects the billiard table felt color:
+///   0: Tournament Green (default), 1: Dark Green, 2: English Green,
+///   3: Navy Blue, 4: Electric Blue, 5: Burgundy/Wine Red,
+///   6: Dark Red, 7: Camel/Tan, 8: Charcoal Grey, 9: Purple
+/// - Without --noise, uses solid Lambertian with the specified color.
+///   Always creates a horizontal plane at origin (0,0,0) with upward normal (0,1,0).
 ///
 /// Background:
 /// - --bg: optional background color (ball index 0-16)
 ///
 /// Examples:
-/// --ball 1.0 0.2 2.0 0 5 --bg 16              (Yellow Line ball + white background)
-/// --plane 0 0 0 0 1 0 7 --ball 0 0.2 1 1 3    (Maroon ground plane + circle green ball)
-/// --plane 0 0 0 0 1 0 7 --ball 0 0.2 1 1 3 --bg 1  (Same with blue background)
+/// --ground --ball 0 0.2 1 1 3               (Default tournament green noise ground)
+/// --ground 3 --ball 0 0.2 1 1 3             (Solid navy blue felt)
+/// --ground --noise 3 --ball 0 0.2 1 1 3     (Navy blue noise felt)
+/// --ground --noise 5 --ball 0 0.2 1 1 3     (Burgundy noise felt)
 pub fn build_custom_scene(args: &[String]) -> Option<CustomScene> {
     let mut world = HittableList::new();
     let mut background_color: Option<Color> = None;
     let mut i = 0;
 
+    let mut ground_created = false;
     while i < args.len() {
         if args[i] == "--ball" {
             // Minimum: x y z (3 args after --ball)
@@ -144,30 +163,52 @@ pub fn build_custom_scene(args: &[String]) -> Option<CustomScene> {
 
             i += consumed;
         } else if args[i] == "--plane" {
-            // Plane format: --plane px py pz nx ny nz color_index
-            // Minimum: 7 args after --plane
-            if i + 7 >= args.len() {
-                return None;
+            // Deprecated: ignore legacy --plane flag
+            i += 1; // Skip the flag; any following numbers will be treated as other flags/args
+        } else if args[i] == "--ground" {
+            // Ground format: --ground [--noise] [color_index]
+            // Only one ground plane allowed; ignore subsequent flags.
+            if ground_created {
+                i += 1; // skip duplicate
+                continue;
             }
 
-            let px: f64 = args[i + 1].parse().ok()?;
-            let py: f64 = args[i + 2].parse().ok()?;
-            let pz: f64 = args[i + 3].parse().ok()?;
-            let nx: f64 = args[i + 4].parse().ok()?;
-            let ny: f64 = args[i + 5].parse().ok()?;
-            let nz: f64 = args[i + 6].parse().ok()?;
+            let mut consumed = 1; // --ground
+            let ground_point = Point3::new(0.0, 0.0, 0.0);
+            let ground_normal = Vec3::new(0.0, 1.0, 0.0);
 
-            let plane_point = Point3::new(px, py, pz);
-            let plane_normal = Vec3::new(nx, ny, nz);
+            // Check for --noise flag
+            let use_noise = if i + consumed < args.len() && args[i + consumed] == "--noise" {
+                consumed += 1;
+                true
+            } else {
+                false
+            };
 
-            let (plane_color, _) = parse_color_or_count(&args[i + 7])?;
+            // Check for ground color index (0-9, optional)
+            let ground_color_value: Color = if i + consumed < args.len() {
+                if let Some(c) = parse_ground_color(&args[i + consumed]) {
+                    consumed += 1;
+                    c
+                } else {
+                    ground_color(0) // Default to index 0 (dark green grass)
+                }
+            } else {
+                ground_color(0) // Default to index 0 (dark green grass)
+            };
 
-            let plane_material: Rc<dyn crate::material::Material> =
-                Rc::new(Lambertian::new(plane_color));
+            // Create material: noise if no --noise flag AND no color index, or if --noise flag present
+            let ground_mat: Rc<dyn crate::material::Material> = if use_noise {
+                Rc::new(LambertianNoise::new(ground_color_value, 200.0))
+            } else if i == consumed { // No --noise, no color index = default noise
+                Rc::new(LambertianNoise::new(ground_color_value, 200.0))
+            } else {
+                Rc::new(Lambertian::new(ground_color_value))
+            };
 
-            world.add(Box::new(Plane::new(plane_point, plane_normal, plane_material)));
-
-            i += 8;
+            world.add(Box::new(Plane::new(ground_point, ground_normal, ground_mat)));
+            ground_created = true;
+            i += consumed;
         } else if args[i] == "--bg" {
             // Background color: --bg color_index
             if i + 1 >= args.len() {
