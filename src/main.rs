@@ -196,7 +196,7 @@ fn random_scene() -> HittableList {
 fn main() {
     // Image
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 800;
+    const IMAGE_WIDTH: i32 = 400;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 10;
@@ -239,15 +239,15 @@ fn main() {
     ];
 
     // --- Render Loop for Video ---
-    for frame in 59..num_frames {
+    for frame in 0..num_frames {
         // --- Calculate Camera Position for this frame ---
         let lookat = Point3::new(3.0, 0.2, 1.7);
         let vup = Point3::new(0.0, 1.0, 0.0);
-        let dist_to_focus = 6.35 - 5.3 *(frame as f64 / num_frames as f64) ;
+        let dist_to_focus = 4.35 - 3.3 *(frame as f64 / num_frames as f64) ;
         let aperture = 0.01 + 0.08 * (frame as f64 / num_frames as f64); //0.0 pinhole 0.05 noticably blur
 
         // Orbit parameters
-        let radius = 6.5 - 5.3 * (frame as f64 / num_frames as f64); // Distance from lookat point in the XZ plane
+        let radius = 4.5 - 5.3 * (frame as f64 / num_frames as f64); // Distance from lookat point in the XZ plane
         let start_angle_rad = 0.46; // Initial angle to match the original view
         let angle_step = degrees_to_radians(ROTATION_DEGREES) / num_frames as f64;
         let current_angle = start_angle_rad + frame as f64 * angle_step;

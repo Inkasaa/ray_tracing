@@ -79,6 +79,35 @@ pub fn  random_billiard_color(count: usize) -> Albedo {
 
 }
 
+/// Parse ball color name to index (0-16)
+/// Returns Some(index) if valid color name, None otherwise
+pub fn ball_color_name_to_index(name: &str) -> Option<usize> {
+    let name_lower = name.to_lowercase();
+    match name_lower.as_str() {
+        // Solid colors (0-7)
+        "black" => Some(0),
+        "blue" => Some(1),
+        "purple" => Some(2),
+        "green" => Some(3),
+        "orange" => Some(4),
+        "yellow" => Some(5),
+        "red" => Some(6),
+        "maroon" => Some(7),
+        // Striped/spots variants (8-15) - using "color2" format
+        "yellow2" => Some(8),
+        "blue2" => Some(9),
+        "red2" => Some(10),
+        "purple2" => Some(11),
+        "orange2" => Some(12),
+        "green2" => Some(13),
+        "maroon2" => Some(14),
+        "black2" => Some(15),
+        // Cue ball (16)
+        "white" | "cue" | "cue-ball" | "cue_ball" => Some(16),
+        _ => None,
+    }
+}
+
 /// Ground color palette - billiard table felt colors
 /// Index 0-4 for different felt colors commonly used on pool tables
 pub fn ground_color(index: usize) -> Color {

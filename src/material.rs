@@ -185,6 +185,11 @@ impl Striped {
         }
     }
 
+    pub fn new_with_dir(a: Color, f: f64, center: Vec3, number_type: NumberType, dir: Vec3) -> Striped {
+        let main_dir = if dir.near_zero() { vec3::random_unit_vector() } else { dir.unit_vector() };
+        Striped { albedo: a, fuzz: f.clamp(0.0, 1.0), center, spot_dir: main_dir, number_type }
+    }
+
     /// Calculates the color for a striped ball with two large spots and a numbered spot.
     fn get_striped_ball_color(&self, hit_point: &Point3) -> Color {
         let p = (*hit_point - self.center).unit_vector();
@@ -209,8 +214,8 @@ impl Striped {
         };
         let small_spot_center_dir = self.spot_dir.cross(&up).unit_vector();
 
-        if (1.0 - p.dot(&small_spot_center_dir)) < 0.08 {
-            return get_number_spot_color(p, small_spot_center_dir, self.number_type, Some(self.spot_dir));
+        if p.dot(&small_spot_center_dir).abs() > (1.0 - 0.08) {
+            return get_number_spot_color(p, self.spot_dir, self.number_type, Some(self.spot_dir));
         }
 
         // If not in any spot, return the base stripe color
