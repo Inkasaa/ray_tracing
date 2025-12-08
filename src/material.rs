@@ -171,25 +171,43 @@ pub struct Striped {
     albedo: Color,
     fuzz: f64,
     center: Vec3,
-    spot_dir: Vec3, // random direction for spots
+    spot_dir: Vec3, // pole axis direction (for white spots)
+    number_spot_dir: Vec3, // direction for numbered spot
     number_type: NumberType,
 }
 
 impl Striped {
     pub fn new(a: Color, f: f64, center: Vec3, number_type: NumberType) -> Striped {
-        let main_dir = vec3::random_unit_vector(); // random orientation of spots
+        let main_dir = vec3::random_unit_vector(); // random orientation of pole axis
+        let up = if main_dir.y().abs() > 0.9 {
+            Vec3::new(1.0, 0.0, 0.0)
+        } else {
+            Vec3::new(0.0, 1.0, 0.0)
+        };
+        let number_dir = main_dir.cross(&up).unit_vector();
         Striped {
             albedo: a,
             fuzz: f.clamp(0.0, 1.0),
             center,
             spot_dir: main_dir,
+            number_spot_dir: number_dir,
             number_type,
         }
     }
 
     pub fn new_with_dir(a: Color, f: f64, center: Vec3, number_type: NumberType, dir: Vec3) -> Striped {
-        let main_dir = if dir.near_zero() { vec3::random_unit_vector() } else { dir.unit_vector() };
-        Striped { albedo: a, fuzz: f.clamp(0.0, 1.0), center, spot_dir: main_dir, number_type }
+        // dir will be used for the numbered spot location (same as solid balls)
+        let number_spot_dir = if dir.near_zero() { vec3::random_unit_vector() } else { dir.unit_vector() };
+        
+        // Calculate pole direction perpendicular to the numbered spot
+        let up = if number_spot_dir.y().abs() > 0.9 {
+            Vec3::new(1.0, 0.0, 0.0)
+        } else {
+            Vec3::new(0.0, 1.0, 0.0)
+        };
+        let pole_dir = number_spot_dir.cross(&up).unit_vector();
+        
+        Striped { albedo: a, fuzz: f.clamp(0.0, 1.0), center, spot_dir: pole_dir, number_spot_dir, number_type }
     }
 
     /// Calculates the color for a striped ball with two large spots and a numbered spot.
@@ -208,17 +226,9 @@ impl Striped {
         }
 
         // --- Small "number" spot between the big spots ---
-        // Find a direction perpendicular to the main spot axis
-        let up = if self.spot_dir.y().abs() > 0.9 {
-            Vec3::new(1.0, 0.0, 0.0)
-        } else {
-            Vec3::new(0.0, 1.0, 0.0)
-        };
-        let small_spot_center_dir = self.spot_dir.cross(&up).unit_vector();
-
-        if (1.0 - p.dot(&small_spot_center_dir).abs()) < NBR_SPOT_RADIUS {
-            return get_number_spot_color(p, small_spot_center_dir, self.number_type,Some(self.spot_dir));
-            //return get_number_spot_color(p_normalized, self.spot_dir, self.number_type, None);
+        // Use the stored numbered spot direction
+        if (1.0 - p.dot(&self.number_spot_dir)) < NBR_SPOT_RADIUS {
+            return get_number_spot_color(p, self.number_spot_dir, self.number_type, Some(self.spot_dir));
         }
 
         // If not in any spot, return the base stripe color

@@ -264,3 +264,5 @@ Pitch is limited to -90° to 90° because:
 90° = straight up (perpendicular to table, pointing top)
 -90° = straight down (perpendicular to table, pointing bottom)
 Values beyond ±90° don't make physical sense (you'd be going "past vertical")
+
+ `target/release/ray-tracing 1 --custom --table --texture PAF darker --ball 3 0.2 2 purple2 1 180 90 --ball 3 0.2 1 purple 1 180 90 --ball 2.5 0.2 2 orange2 1 180 90 --ball 2.5 0.2 1 orange 1 180 90 --ball 2 0.2 2 red2 1 180 90 --ball 2 0.2 1 red 1 180 90 --ball 1.5 0.2 2 yellow2 1 180 90 --ball 1.5 0.2 1 yellow 1 180 90 --ball 1 0.2 2 green2 1 180 90 --ball 1 0.2 1 green 1 180 90 --ball 0.5 0.2 2 blue2 1 180 90 --ball 0.5 0.2 1 blue 1 180 90`

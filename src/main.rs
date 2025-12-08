@@ -196,7 +196,7 @@ fn random_scene() -> HittableList {
 fn main() {
     // Image
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: i32 = 400;
+    const IMAGE_WIDTH: i32 = 800;
     const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
     const SAMPLES_PER_PIXEL: i32 = 200;
     const MAX_DEPTH: i32 = 10;
@@ -241,7 +241,7 @@ fn main() {
     // --- Render Loop for Video ---
     for frame in 0..num_frames {
         // --- Calculate Camera Position for this frame ---
-        let lookat = Point3::new(3.0, 0.2, 1.7);
+        let lookat = Point3::new(2.0, 0.2, 1.7);
         let vup = Point3::new(0.0, 1.0, 0.0);
         let dist_to_focus = 4.35 - 3.3 *(frame as f64 / num_frames as f64) ;
         let aperture = 0.01 + 0.08 * (frame as f64 / num_frames as f64); //0.0 pinhole 0.05 noticably blur

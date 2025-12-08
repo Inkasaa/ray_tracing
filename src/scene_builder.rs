@@ -134,7 +134,6 @@ pub fn build_custom_scene(args: &[String]) -> Option<CustomScene> {
     let mut background_color: Option<Color> = None;
     let mut i = 0;
 
-    let mut ground_created = false;
     while i < args.len() {
         if args[i] == "--ball" {
                 // Required: x y z color (4 args after --ball)
@@ -197,63 +196,7 @@ pub fn build_custom_scene(args: &[String]) -> Option<CustomScene> {
             world.add(Box::new(Sphere::new(center, 0.2, ball_material)));
 
             i += consumed;
-        } else if args[i] == "--plane" {
-            // Deprecated: ignore legacy --plane flag
-            i += 1; // Skip the flag; any following numbers will be treated as other flags/args
-    } else if args[i] == "--ground" {
-            // Ground format: --ground [--noise] [color_index]
-            // Only one ground plane allowed; ignore subsequent flags.
-            if ground_created {
-                i += 1; // skip duplicate
-                continue;
-            }
-
-            let mut consumed = 1; // --ground
-            let ground_point = Point3::new(0.0, 0.0, 0.0);
-            let ground_normal = Vec3::new(0.0, 1.0, 0.0);
-
-            // Check for --noise flag
-            let use_noise = if i + consumed < args.len() && args[i + consumed] == "--noise" {
-                consumed += 1;
-                true
-            } else {
-                false
-            };
-
-            // Check for ground color index (0-9, optional)
-            let ground_color_value: Color = if i + consumed < args.len() {
-                if let Some(c) = parse_ground_color(&args[i + consumed]) {
-                    consumed += 1;
-                    c
-                } else {
-                    ground_color(0) // Default to index 0 (dark green grass)
-                }
-            } else {
-                ground_color(0) // Default to index 0 (dark green grass)
-            };
-
-            // Create material: noise if no --noise flag AND no color index, or if --noise flag present
-            let ground_mat: Rc<dyn crate::material::Material> = if use_noise {
-                Rc::new(LambertianNoise::new(ground_color_value, 200.0))
-            } else if i == consumed { // No --noise, no color index = default noise
-                Rc::new(LambertianNoise::new(ground_color_value, 200.0))
-            } else {
-                Rc::new(Lambertian::new(ground_color_value))
-            };
-
-            world.add(Box::new(Plane::new(ground_point, ground_normal, ground_mat)));
-            ground_created = true;
-            i += consumed;
-        } else if args[i] == "--table" {
-            // New convenience: --table [--texture <felt name>]
-            // Creates ground plane; if --texture is provided, enable Perlin noise using the named felt color.
-            // Examples:
-            //   --table --texture PAF green
-            //   --table --texture Electric Blue
-            if ground_created {
-                i += 1;
-                continue;
-            }
+    } else if args[i] ==  "--table" {
 
             let mut consumed = 1; // --table
             let ground_point = Point3::new(0.0, 0.0, 0.0);
@@ -293,7 +236,7 @@ pub fn build_custom_scene(args: &[String]) -> Option<CustomScene> {
             };
 
             world.add(Box::new(Plane::new(ground_point, ground_normal, ground_mat)));
-            ground_created = true;
+    
             i += consumed;
         } else if args[i] == "--bg" {
             // Background color: --bg color_index
