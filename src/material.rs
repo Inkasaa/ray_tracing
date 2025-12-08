@@ -7,6 +7,13 @@ use crate::vec3::{Point3, Vec3};
 // --- Constants for Billiard Ball Spot Rendering ---
 const BILLIARD_SPOT_WHITE: Color = Color::new(0.72, 0.50, 0.35); // Warm white/tan for spots
 const BILLIARD_SPOT_BLACK: Color = Color::new(0.0, 0.0, 0.0);
+    // Parameters controlling the look of the spot
+    const NBR_SPOT_RADIUS: f64 = 0.08;
+    const OUTER_BLACK_RIM_THICKNESS: f64 = 0.015;
+    const OUTER_WHITE_RING_THICKNESS: f64 = 0.0135; // This creates the white ring at the edge.
+    const LINE_THICKNESS: f64 = 0.05; // Increased from 0.02 to make the line thicker
+    const CIRCLE_THICKNESS: f64 = 0.015; 
+    const CIRCLE_RADIUS: f64 = 0.02; 
 
 #[derive(Clone, Copy)]
 pub enum NumberType {
@@ -95,16 +102,11 @@ impl Metal {
 
 /// Draws a small, numbered white spot with a black ring.
 fn get_number_spot_color(p_normalized: Vec3, spot_center_dir: Vec3, number_type: NumberType, pole_dir: Option<Vec3>) -> Color {
-    let alignment = p_normalized.dot(&spot_center_dir);
-    let angle_diff = 1.0 - alignment;
 
-    // Parameters controlling the look of the spot
-    const NBR_SPOT_RADIUS: f64 = 0.08;
-    const OUTER_BLACK_RIM_THICKNESS: f64 = 0.015;
-    const OUTER_WHITE_RING_THICKNESS: f64 = 0.0135; // This creates the white ring at the edge.
-    const LINE_THICKNESS: f64 = 0.05; // Increased from 0.02 to make the line thicker
-    const CIRCLE_THICKNESS: f64 = 0.015; 
-    const CIRCLE_RADIUS: f64 = 0.02; 
+    let angle_diff ={
+        let alignment = p_normalized.dot(&spot_center_dir);
+        1.0 - alignment
+    };
 
     // Determine color based on position within the spot
     // The black rim is now inset from the edge to leave a white ring.
@@ -214,8 +216,9 @@ impl Striped {
         };
         let small_spot_center_dir = self.spot_dir.cross(&up).unit_vector();
 
-        if p.dot(&small_spot_center_dir).abs() > (1.0 - 0.08) {
-            return get_number_spot_color(p, self.spot_dir, self.number_type, Some(self.spot_dir));
+        if (1.0 - p.dot(&small_spot_center_dir).abs()) < NBR_SPOT_RADIUS {
+            return get_number_spot_color(p, small_spot_center_dir, self.number_type,Some(self.spot_dir));
+            //return get_number_spot_color(p_normalized, self.spot_dir, self.number_type, None);
         }
 
         // If not in any spot, return the base stripe color
